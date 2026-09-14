@@ -1337,7 +1337,6 @@ export class Academic2DMode {
         ctx.shadowColor = color;
         ctx.shadowBlur = 8;
       }
-      const toPxY = (v) => midY - (v / 2.2) * (rowHeight * 0.38);
 
       for (let i = 0; i < samples.length; i++) {
         const px = toPxX(samples[i].x);
