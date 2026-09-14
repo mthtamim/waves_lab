@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Interactive Wave & Acoustics Laboratory</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+
+  <!-- Modern ES Module Importmap for Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Presentation Mode Floating Exit Button -->
+  <button id="btn-exit-presentation" class="btn-exit-presentation" title="Exit Presentation Mode (বা Esc চাপুন)">
+    ✕ Exit Presentation (Esc)
+  </button>
+
+  <!-- Top Navigation & Control Bar -->
+  <header class="top-header">
+    <div class="brand">
+      <span class="brand-icon">🌊</span>
+      <div>
+        <h1>3D Wave & Acoustics Laboratory</h1>
+      </div>
+      <!-- Feature 7: Live Source Synchronization Status Badge -->
+      <span class="sync-badge" id="sync-status-badge" title="Source Coherence Status">🟢 Synchronized</span>
+    </div>
+
+    <div class="header-center-controls">
+      <button class="btn-ctrl" id="btn-play">
+        <span>⏸</span> Pause
+      </button>
+      <button class="btn-ctrl" id="btn-reset">
+        <span>↻</span> Reset
+      </button>
+
+      <!-- Feature 14: Undo / Redo -->
+      <button class="btn-ctrl" id="btn-undo" title="Undo (Ctrl+Z)"><span>↩</span></button>
+      <button class="btn-ctrl" id="btn-redo" title="Redo (Ctrl+Y)"><span>↪</span></button>
+
+      <div class="sim-speed-ctrl">
+        <span>Speed:</span>
+        <select id="speed-select">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1.0" selected>1.0×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2.0">2.0×</option>
+        </select>
+      </div>
+
+      <div class="volume-ctrl">
+        <button class="btn-ctrl muted" id="btn-audio-toggle">
+          <span>🔇</span> Sound Off
+        </button>
+        <input type="range" id="master-volume" min="0" max="1" step="0.05" value="0.5" title="Master Audio Volume">
+      </div>
+
+      <!-- Scope Panel & Custom Equation Toggles -->
+      <button class="btn-ctrl active" id="btn-toggle-scope" title="Toggle Bottom Oscilloscope Panel (গ্রাফ অন/অফ)">
+        <span>📈</span> Scope
+      </button>
+      <button class="btn-ctrl" id="btn-custom-eq" title="Custom Mathematical Wave Formula (কাস্টম সমীকরণ)">
+        <span>✨</span> Custom Eq
+      </button>
+    </div>
+
+    <div class="wave-model-toggle-group">
+      <button class="btn-wave-model active" id="btn-model-ideal" title="Ideal Wave: Constant Amplitude, Zero Energy Loss (আদর্শ তরঙ্গ)">🌟 Ideal Wave</button>
+      <button class="btn-wave-model" id="btn-model-practical" title="Practical Wave: 1/r Distance Attenuation (ব্যবহারিক তরঙ্গ)">🌊 Practical Wave</button>
+    </div>
+
+    <div class="dimension-toggle-group">
+      <button class="btn-dim-toggle active" id="btn-dim-3d" title="Switch to Full 3D Interactive Arena">🧊 3D Arena</button>
+      <button class="btn-dim-toggle" id="btn-dim-2d" title="Switch to 2D Academic Classroom (Textbook Graphs & Fringes)">📐 2D Classroom</button>
+    </div>
+
+    <div class="mode-toggle-group">
+      <button class="btn-toggle-mode active" id="btn-mode-guided">🎓 Guided</button>
+      <button class="btn-toggle-mode" id="btn-mode-free">🔬 Free Lab</button>
+      <button class="btn-toggle-mode" id="btn-mode-challenge">🏆 Challenge</button>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="main-content-layout">
+    
+    <!-- Left Panel: Presets & Tools -->
+    <aside class="side-panel" id="left-panel"></aside>
+
+    <!-- Center Viewport: 3D Three.js WebGL Simulation -->
+    <div class="viewport-wrapper" id="viewport-wrapper">
+      <div id="viewport-3d"></div>
+      
+      <!-- Interactive Hints -->
+      <div class="viewport-overlay-hints">
+        <div class="hint-pill">
+          🖱️ <strong>Left Click + Drag:</strong> Orbit camera | <strong>Right Click:</strong> Pan | <strong>Scroll:</strong> Zoom
+        </div>
+        <div class="hint-pill">
+          🎯 <strong>Interactive:</strong> Click and drag sources or receiver. Use <strong>Space</strong> for Play/Pause, <strong>F</strong> to Focus!
+        </div>
+      </div>
+
+      <!-- Feature 44: Teacher Annotation Tool Bar (Hidden unless toggled) -->
+      <div class="annotation-toolbar" id="annotation-toolbar" style="display: none;">
+        <span class="annot-label">✏️ Annotation Pen:</span>
+        <input type="color" id="annot-color-picker" value="#fbbf24">
+        <button class="btn-tool-sm" id="btn-annot-clear">Clear Drawings</button>
+        <button class="btn-tool-sm" id="btn-annot-done">Close Pen</button>
+      </div>
+    </div>
+
+    <!-- Right Panel: Inspector, Phase Wheel & Physics Challenges -->
+    <aside class="side-panel right-panel">
+      <div class="right-panel-tabs">
+        <button class="tab-btn active" id="tab-inspector-btn">🎯 Inspector</button>
+        <button class="tab-btn" id="tab-analysis-btn">🧭 Phase & Tools</button>
+        <button class="tab-btn" id="tab-challenge-btn">🏆 Challenges</button>
+        <button class="tab-btn" id="tab-edu-btn">📖 Guide</button>
+      </div>
+
+      <div class="right-tab-content" id="right-panel-content"></div>
+      
+      <!-- Feature 3: Phase Wheel & Advanced Tools Content Tab -->
+      <div class="right-tab-content" id="analysis-panel-content" style="display: none;">
+        <div class="panel-section-card">
+          <h4 class="card-title">🧭 Phase Wheel Phasors</h4>
+          <p class="card-desc">Instantaneous rotation angle (ωt - ϕ) for active sources.</p>
+          <canvas id="phasewheel-canvas" width="280" height="130"></canvas>
+        </div>
+
+        <!-- Feature 4 & 6: Travel-Time & Wavefront Counter -->
+        <div class="panel-section-card">
+          <h4 class="card-title">⏱️ Wave Travel-Time & Wavefronts</h4>
+          <div class="stat-row">
+            <span>Travel Time to Receiver (τ = r/v):</span>
+            <strong id="readout-traveltime">0.00 s</strong>
+          </div>
+          <div class="stat-row">
+            <span>Emitted Wavefronts (N = ⌊f·t⌋):</span>
+            <strong id="readout-wavefront-count">0</strong>
+          </div>
+        </div>
+
+        <!-- Features 31 & 32: Numerical Probes Data Table -->
+        <div class="panel-section-card">
+          <div class="card-header-flex">
+            <h4 class="card-title">📍 Point Probes</h4>
+            <button class="btn-sm" id="btn-clear-probes">Clear All</button>
+          </div>
+          <div id="probes-table-container">
+            <p class="empty-hint">Drop probes using the left panel button or click "Drop Probe" to measure spatial points.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 10: Physics Challenges Tab -->
+      <div class="right-tab-content" id="challenges-panel-content" style="display: none;">
+        <div class="panel-section-card">
+          <h4 class="card-title">🏆 Active Physics Mission</h4>
+          <div class="mission-box" id="mission-box"></div>
+          <div class="mission-actions">
+            <button class="btn-secondary-sm" id="btn-prev-challenge">◀ Prev</button>
+            <button class="btn-secondary-sm" id="btn-next-challenge">Next ▶</button>
+            <button class="btn-secondary-sm" id="btn-random-mystery">🔍 Random Mystery</button>
+          </div>
+        </div>
+
+        <!-- Student Prediction Mode (Interactive Hypothesis) -->
+        <div class="panel-section-card" id="prediction-section-card" style="margin-top: 12px;">
+          <h4 class="card-title">💡 Make a Prediction (Hypothesis)</h4>
+          <p class="card-desc">Test your intuition before running the experiment.</p>
+          <div id="prediction-prompt-box">
+            <p id="pred-question" style="font-weight: 500; margin-bottom: 8px; color: #f8fafc; font-size: 13px;">What will happen to the amplitude at Receiver R if we introduce a 180° (π) phase difference between equidistant sources?</p>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 12px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="pred-choice" value="doubles"> Amplitude doubles (Constructive)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="pred-choice" value="cancels"> Amplitude cancels to 0 (Destructive Node)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="pred-choice" value="beats"> Audible pulsating beats form
+              </label>
+            </div>
+            <button class="btn-sm" id="btn-submit-prediction" style="width: 100%;">Check Hypothesis</button>
+            <div id="prediction-feedback" style="margin-top: 8px; font-size: 12px; display: none; padding: 6px 8px; border-radius: 4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-tab-content" id="edu-guide-content" style="display: none;"></div>
+    </aside>
+
+  </main>
+
+  <!-- Bottom: Dual Oscilloscope & Real-time Measurement Readouts -->
+  <footer class="bottom-measurement-panel">
+    
+    <!-- Live Measurements Strip -->
+    <div class="measurements-banner">
+      <div class="readout-item">
+        <span class="readout-label">Receiver Amplitude Ψ(R,t):</span>
+        <span class="readout-val" id="readout-disp">0.00</span>
+      </div>
+
+      <div class="readout-item">
+        <span class="readout-label">Path Difference (Δr):</span>
+        <span class="readout-val" id="readout-pathdiff">0.00 m</span>
+      </div>
+
+      <div class="readout-item">
+        <span class="readout-label">Phase Difference (Δϕ):</span>
+        <span class="readout-val" id="readout-phasediff">0°</span>
+      </div>
+
+      <div class="readout-item">
+        <span class="readout-label">Interference Condition:</span>
+        <span class="readout-val val-condition constructive" id="readout-condition">Constructive</span>
+      </div>
+
+      <div class="readout-item">
+        <span class="readout-label">Beat Frequency:</span>
+        <span class="readout-val" id="readout-beat">None</span>
+      </div>
+
+      <!-- Scope Panel Action Controls -->
+      <div class="banner-right-actions">
+        <button class="btn-banner-action" id="btn-minimize-scope" title="Minimize / Expand Scope Panel">▼ Minimize</button>
+        <button class="btn-banner-action" id="btn-hide-scope" title="Hide Scope Panel">✕ Hide</button>
+      </div>
+    </div>
+
+    <!-- Oscilloscope Canvas & Trace Selectors -->
+    <div class="scope-body">
+      <div class="scope-canvas-container">
+        <canvas id="oscilloscope-canvas"></canvas>
+      </div>
+
+      <div class="scope-controls-strip">
+        <div class="trace-toggles">
+          <label class="trace-chk">
+            <input type="checkbox" id="chk-trace-res" checked>
+            <span class="trace-pill" style="background: #34d399"></span>
+            <strong>Resultant Superposition</strong>
+          </label>
+          <label class="trace-chk">
+            <input type="checkbox" id="chk-trace-a" checked>
+            <span class="trace-pill" style="background: #38bdf8"></span>
+            <span>Source A Waveform</span>
+          </label>
+          <label class="trace-chk">
+            <input type="checkbox" id="chk-trace-b" checked>
+            <span class="trace-pill" style="background: #f43f5e"></span>
+            <span>Source B Waveform</span>
+          </label>
+          <label class="trace-chk">
+            <input type="checkbox" id="chk-trace-env" checked>
+            <span class="trace-pill" style="background: #fbbf24"></span>
+            <span>Beat Envelope</span>
+          </label>
+        </div>
+
+        <button class="btn-freeze" id="btn-freeze-scope">Freeze Scope</button>
+      </div>
+    </div>
+
+  </footer>
+
+  <!-- Feature 43: Searchable Physics Glossary Modal -->
+  <div class="modal-overlay" id="modal-glossary" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>📖 Wave Physics Glossary</h3>
+        <button class="btn-close-modal" id="btn-close-glossary">✕</button>
+      </div>
+      <div class="modal-body" id="glossary-body-content"></div>
+    </div>
+  </div>
+
+  <!-- Feature 23: Physics Formula Inspector Modal -->
+  <div class="modal-overlay" id="modal-formula" style="display: none;">
+    <div class="modal-card" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3 id="formula-modal-title">📐 Physics Formula Inspector</h3>
+        <button class="btn-close-modal" id="btn-close-formula">✕</button>
+      </div>
+      <div class="modal-body" id="formula-body-content"></div>
+    </div>
+  </div>
+
+  <!-- Mission Celebration Banner -->
+  <div class="celebration-toast" id="celebration-toast" style="display: none;">
+    <div class="toast-content">
+      <span class="toast-icon">🎉</span>
+      <div>
+        <strong id="toast-title">Mission Accomplished!</strong>
+        <p id="toast-desc">Physics objective successfully verified.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Equation Studio Modal -->
+  <div class="modal-overlay" id="modal-custom-eq" style="display: none;">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">✨</span>
+          <h3 style="margin: 0; font-size: 16px;">Custom Wave Equation Studio (কাস্টম তরঙ্গ সমীকরণ)</h3>
+        </div>
+        <button class="btn-close-modal" id="btn-close-custom-eq">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.5;">
+          যেকোনো গাণিতিক তরঙ্গ সমীকরণ ইনপুট দিন। এটি 3D স্পেস ও 2D গ্রাফ উভয় ক্ষেত্রে সাথে সাথে লাইভ অ্যানিমেশন ও সুপারপজিশনে সিমুলেট হবে।
+        </p>
+
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 6px;">
+            ⚡ Quick Equation Presets (প্রিসেট সমীকরণ নির্বাচন)
+          </label>
+          <select id="select-eq-preset" class="preset-dropdown" style="width: 100%;">
+            <option value="">-- Choose an Equation Preset --</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 11px; font-weight: 700; color: #e2e8f0; text-transform: uppercase; margin-bottom: 6px;">
+            Mathematical Formula: ƒ(x, z, t, r) =
+          </label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="input-custom-eq" class="preset-dropdown" style="flex: 1; font-family: monospace; font-size: 14px; padding: 10px;" value="2.0 * sin(2*x - 4*t)">
+          </div>
+          <div id="custom-eq-error" style="display: none; color: #fb7185; font-size: 12px; margin-top: 6px; padding: 4px 8px; background: rgba(244,63,94,0.15); border-radius: 4px;"></div>
+        </div>
+
+        <div style="margin-bottom: 16px; background: #0f172a; padding: 10px 12px; border-radius: 6px; border: 1px solid #334155;">
+          <span style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">Available Variables & Functions (ক্লিক করে ইনপুটে যোগ করুন):</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="eq-chips-container">
+            <button class="chip-btn" data-ins="sin()">sin</button>
+            <button class="chip-btn" data-ins="cos()">cos</button>
+            <button class="chip-btn" data-ins="exp()">exp</button>
+            <button class="chip-btn" data-ins="pow( , 2)">pow</button>
+            <button class="chip-btn" data-ins="cosh()">cosh</button>
+            <button class="chip-btn" data-ins="sqrt()">sqrt</button>
+            <button class="chip-btn" data-ins="abs()">abs</button>
+            <button class="chip-btn" data-ins="PI">PI</button>
+            <button class="chip-btn" data-ins="x">x</button>
+            <button class="chip-btn" data-ins="z">z</button>
+            <button class="chip-btn" data-ins="t">t</button>
+            <button class="chip-btn" data-ins="r">r</button>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid #334155; padding-top: 12px;">
+          <button class="btn-ctrl" id="btn-disable-custom-eq" style="color: #94a3b8;">
+            🔄 Standard Simulation Mode (স্বাভাবিক মোড)
+          </button>
+          <button class="btn-tool" id="btn-apply-custom-eq" style="background: #0284c7; color: white; border: none; padding: 8px 18px; font-weight: 600;">
+            ▶ Apply & Simulate (চালু করুন)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Floating Quick Navigation Dock (Visible on Mobile Screens <= 900px) -->
+  <div class="mobile-bottom-dock" id="mobile-bottom-dock">
+    <button class="btn-mobile-pill" id="btn-mobile-left" title="Open Tools & Presets Drawer">
+      <span>📚</span> Presets
+    </button>
+    <button class="btn-mobile-pill" id="btn-mobile-scope" title="Toggle Oscilloscope Panel">
+      <span>📈</span> Scope
+    </button>
+    <button class="btn-mobile-pill" id="btn-mobile-right" title="Open Inspector & Controls">
+      <span>🎯</span> Inspector
+    </button>
+  </div>
+
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop"></div>
+
+  <!-- Application Entry Point -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
