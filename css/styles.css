@@ -2240,3 +2240,17 @@ body.presentation-mode .btn-exit-presentation:hover {
     font-size: 15px !important;
   }
 }
+
+/* Hide desktop specific instructions on mobile */
+/* Hide the entire overlay hints container on mobile to maximize viewable area,
+   since keyboard shortcuts (Space, F) and right-click/scroll instructions
+   do not apply well to touch interfaces. */
+@media (max-width: 900px) {
+  .viewport-overlay-hints {
+    display: none !important;
+  }
+
+  .mobile-bottom-dock {
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
