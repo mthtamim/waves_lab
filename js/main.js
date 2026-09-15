@@ -1066,3 +1066,14 @@ class WaveLabApp {
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new WaveLabApp();
 });
+
+// App-style Mobile Menu Toggle
+window.addEventListener('DOMContentLoaded', () => {
+  const btnMenu = document.getElementById('btn-mobile-menu');
+  const header = document.querySelector('.top-header');
+  if (btnMenu && header) {
+    btnMenu.addEventListener('click', () => {
+      header.classList.toggle('menu-open');
+    });
+  }
+});

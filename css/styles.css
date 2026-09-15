@@ -2191,8 +2191,7 @@ body.presentation-mode .btn-exit-presentation:hover {
 
   /* Bottom Oscilloscope collapses by default on mobile screens */
   .bottom-measurement-panel {
-    display: none !important;
-    display: none !important;
+    height: 38px !important;
   }
 
   .bottom-measurement-panel:not(.expanded-mobile) .scope-body {
@@ -2200,12 +2199,32 @@ body.presentation-mode .btn-exit-presentation:hover {
   }
 
   .bottom-measurement-panel.expanded-mobile {
-    display: flex !important;
     height: 220px;
-    bottom: 60px;
-    position: fixed;
+  }
+
+  .btn-mobile-menu {
+    display: block !important;
+  }
+
+  .top-header .header-center-controls,
+  .top-header .header-right-controls {
+    display: none;
+  }
+
+  .top-header.menu-open .header-center-controls,
+  .top-header.menu-open .header-right-controls {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
     width: 100%;
-    z-index: 1000;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .top-header.menu-open {
+    flex-wrap: wrap;
+    height: auto;
+    padding-bottom: 10px;
   }
 
   .measurements-banner {
@@ -2244,26 +2263,5 @@ body.presentation-mode .btn-exit-presentation:hover {
   input[type="text"],
   select {
     font-size: 15px !important;
-  }
-}
-
-/* Hide desktop specific instructions on mobile */
-/* Hide the entire overlay hints container on mobile to maximize viewable area,
-   since keyboard shortcuts (Space, F) and right-click/scroll instructions
-   do not apply well to touch interfaces. */
-@media (max-width: 900px) {
-  .viewport-overlay-hints {
-    display: none !important;
-  }
-
-  .mobile-bottom-dock {
-    bottom: max(12px, env(safe-area-inset-bottom));
-  }
-}
-
-@media (max-width: 900px) {
-  /* Force hide all top hints directly under body/viewport */
-  .viewport-overlay-hints {
-    display: none !important;
   }
 }
