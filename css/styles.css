@@ -2191,7 +2191,7 @@ body.presentation-mode .btn-exit-presentation:hover {
 
   /* Bottom Oscilloscope collapses by default on mobile screens */
   .bottom-measurement-panel {
-    height: 38px !important;
+    height: 38px;
   }
 
   .bottom-measurement-panel:not(.expanded-mobile) .scope-body {

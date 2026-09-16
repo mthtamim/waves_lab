@@ -21,7 +21,8 @@ jobs:
       - name: Setup Web Directory
         run: |
           mkdir dist
-          cp -r css js index.html manifest.json sw.js dist/
+          cp -r css js index.html dist/
+          cp manifest.json sw.js dist/ 2>/dev/null || true
           cp -r assets dist/ 2>/dev/null || true
           cp -r images dist/ 2>/dev/null || true
           cp -r models dist/ 2>/dev/null || true
@@ -46,10 +47,26 @@ jobs:
 
       - name: Build Android App
         run: |
-          npx cap sync android || true
+          npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # Retry mechanism to handle transient 429 errors from maven central
+          SUCCESS=0
+          for i in 1 2 3 4 5; do
+            if ./gradlew assembleDebug; then
+              SUCCESS=1
+              break
+            else
+              echo "Gradle build failed, retrying in 20s..."
+              sleep 20
+            fi
+          done
+
+          if [ $SUCCESS -eq 0 ]; then
+            echo "Gradle build failed after 5 attempts."
+            # Cause step failure using set -e compliant technique
+            /bin/false
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
