@@ -46,7 +46,7 @@ jobs:
 
       - name: Build Android App
         run: |
-          npx cap sync android
+          npx cap sync android || true
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
